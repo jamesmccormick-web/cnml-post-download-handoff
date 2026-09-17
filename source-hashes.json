@@ -1,0 +1,8 @@
+{
+  "automation/proceeds.mjs": "441002f1d8e452518da466b2299cfe09c919ee4dfa6a06f4541ae4f56bb46326",
+  "automation/proceeds-core.mjs": "caf506d7c08a61bb1a3afea250f987a10f7fbdce2a7df63891c6a32e08fa247a",
+  "automation/extract_proceeds.py": "0f830cb994e6fca9b6cc66f8c7087aed963c8621ca838aa187a8995fa64ee7b2",
+  "automation/requirements.txt": "7b5d7f83af7d189b08ce3184cd5d47bd18d34b0732da4749a394ca2d6e3adb5b",
+  "automation/tests/proceeds.test.mjs": "ea5582b534241f7e185c1853b3b765822daaa7a97bda8319c0d672084cbb9781",
+  "playbooks/Cash_Plus_Upside_Proceeds_Prompt_v60.md": "3cafe7c352acb2e6869cc31a9b84dea6d1bae633bcaa956cb4a80e1f294cd07f"
+}

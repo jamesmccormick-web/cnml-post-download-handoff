@@ -1,0 +1,32 @@
+✔ full-column response may clamp header only to independently verified grid extent (1.341833ms)
+✔ wrapped legal alias stays with second seller while unrelated multiline names block (7.560084ms)
+✔ negative completes serial writes, sends once, and never creates a letter (3.055292ms)
+✔ Gmail explicit text success receipt confirms once; ambiguous text cannot advance (0.745792ms)
+✔ exact zero follows unchanged truthful email branch and sheet transfer precedes final completion (2.49525ms)
+✔ positive two-seller copy uses current token and verifies T; no email or P/Q (0.717334ms)
+✔ inherited writer access needs explicit approval tied to this document and token (1.088208ms)
+✔ missing rows append once with response-derived row and fresh duplicate checks (0.731875ms)
+✔ literal scratch fallback keeps complete scans and clears only owned scratch (1.224333ms)
+✔ error scratch fallback keeps complete scans and clears only owned scratch (0.925542ms)
+✔ occupied scratch fallback keeps complete scans and clears only owned scratch (1.045125ms)
+✔ duplicate beyond old row ceiling blocks with both row numbers (0.934958ms)
+✔ changed token stops immediately before write (0.192292ms)
+✔ uncertain email cannot replay or write completion fields (0.274ms)
+✔ uncertain copy cannot replay and old template ID is rejected (0.314333ms)
+✔ atomic batch rejection runs nine ordered single replacements (0.528708ms)
+✔ unsupported sign, ambiguous names, invalid email, preview writes and foreign responses are blocked (0.132542ms)
+✔ case-sensitive full TSV scan preserves blank row offsets and quoted fields (0.090083ms)
+✔ single seller leaves second signer placeholder empty (0.039791ms)
+✔ wrong T readback and zero-match date cannot report success (0.577584ms)
+✔ CLI emits a runnable direct connector call and captures an untranscribed response (141.971875ms)
+✔ extractor selects locked data-col values, 15 rows, reordered Table2, blank null and independent SF (233.638584ms)
+✔ portable fresh ledger checks existing sheet status or letter before new writes (1.2665ms)
+✔ standalone intake accepts uploaded HTML without browser state and preserves local ledger guards (671.126084ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1127.108875
