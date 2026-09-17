@@ -5,7 +5,7 @@ import {resolve,dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {createState,begin,accept,confirmation,digest} from './proceeds-core.mjs';
+import {createState,begin,accept,confirmation,digest,requiredTools} from './proceeds-core.mjs';
 const root=dirname(fileURLToPath(import.meta.url));
 const [command,stateArg,...args]=process.argv.slice(2);
 const read=p=>readFile(p,'utf8').then(JSON.parse);
@@ -15,6 +15,8 @@ if(!command||command==='help'){
  console.log(`CNML v60 downstream workflow (default: preview only)
   prepare STATE.json INPUT_state.html
   preview STATE.json
+  tools STATE.json
+  accept-tools STATE.json TOOL_RESPONSE.json
   authorize STATE.json APPROVAL.json
   next STATE.json
   accept STATE.json RESPONSE.json
@@ -45,8 +47,17 @@ try{
   console.log(JSON.stringify({stage:s.stage,token:p.token,branch:p.branch,preview:true}));
  }else{
   const s=await read(path);
+  assert(s.version===2,'Older checkpoint requires reconciliation; do not reset it or replay work with v2');
   assert(digest(s.property)===s.propertyDigest,'Property packet changed');
-  if(command==='preview'){
+  if(command==='tools'){
+   const responsePath=join(dirname(path),'tool-check.json'),names=requiredTools(s.property);
+   const code=`const names=${JSON.stringify(names)}; const result={token:${JSON.stringify(s.property.token)},sha256:${JSON.stringify(s.property.sha256)},checkedAt:new Date().toISOString(),available:names.filter(n=>typeof tools[n]==='function'),missing:names.filter(n=>typeof tools[n]!=='function')}; const body=JSON.stringify(result,null,2); text(await tools.apply_patch("*** Begin Patch\\n*** Add File: "+${JSON.stringify(responsePath)}+"\\n"+body.split("\\n").map(line=>"+"+line).join("\\n")+"\\n*** End Patch")); text({missing:result.missing});`;
+   console.log(JSON.stringify({toolCall:{tool:'functions.exec',code},next:`node automation/proceeds.mjs accept-tools ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
+  }else if(command==='accept-tools'){
+   const r=await read(resolve(args[0]));assert(!s.pending,'Reconcile pending operation first');
+   assert(r.token===s.property.token&&r.sha256===s.property.sha256&&r.missing?.length===0&&requiredTools(s.property).every(n=>r.available?.includes(n)),'Required direct Runlayer tools unavailable; do not use another connector or improvise');
+   s.toolCheck=r;await put(path,s);console.log('Tool names verified; actual access will be checked by read-only operations.');
+  }else if(command==='preview'){
    console.log(JSON.stringify({token:s.property.token,sha256:s.property.sha256,branch:s.property.branch,manualAR:s.property.manual,manualV:s.property.subsidy,auditNotesAD:s.property.notes,accountingD:s.property.estimatedCents===null?null:s.property.estimatedCents/100,communication:s.property.branch==='positive'?{replacements:s.communication.replacements,date:s.communication.date}:s.communication.email,warnings:s.warnings,authorization:s.authorization},null,2));
   }else if(command==='status')console.log(JSON.stringify(s,null,2));
   else if(command==='summary')console.log(confirmation(s));
@@ -60,10 +71,11 @@ try{
     assert(approval.sourceReviewComplete===true && approval.sellerEmailFromProgramAgreement===true && approval.exclusiveProcessingConfirmed===true,'Operator must confirm reviewed source state, program-agreement email, and exclusive processing for this property');
     s.authorization={sheets:approval.sheets===true,letter:approval.letter===true,email:approval.email===true};s.approval=approval;await put(path,s);console.log('Recorded property-specific deployment scope.');
    }else if(command==='next'){
+    assert(s.toolCheck&&requiredTools(s.property).every(n=>s.toolCheck.available?.includes(n)),'Run tools and accept-tools in this Codex environment first');
     const o=begin(s);await put(path,s);
     const responsePath=join(dirname(path),`${s.property.token}-${o.id}.response.json`);
     const code=`const result = await tools[${JSON.stringify(o.tool)}](${JSON.stringify(o.args)});\nconst envelope = { operationId: ${JSON.stringify(o.id)}, result };\nconst body = JSON.stringify(envelope, null, 2);\ntext(await tools.apply_patch("*** Begin Patch\\n*** Add File: " + ${JSON.stringify(responsePath)} + "\\n" + body.split("\\n").map(line => "+" + line).join("\\n") + "\\n*** End Patch"));\ntext({savedResponse: ${JSON.stringify(responsePath)}, isError: result.isError === true});`;
-    console.log(JSON.stringify({operation:o.kind,token:s.property.token,toolCall:{tool:'functions.exec',code},next:`node automation/proceeds.mjs accept ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
+    console.log(JSON.stringify({operation:o.kind,mutation:o.mutation,scope:o.scope,token:s.property.token,toolCall:{tool:'functions.exec',code},next:`node automation/proceeds.mjs accept ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
    }else if(command==='accept'){
     const envelope=await read(resolve(args[0]));
     // Validate a clone; failed acceptance must preserve the original pending intent.

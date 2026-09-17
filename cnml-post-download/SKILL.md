@@ -3,7 +3,9 @@ name: cnml-post-download
 description: Process a reviewed CNML Download with State HTML upload in Codex through sheet routing and the positive release-letter draft or zero/negative seller notification. Starts after the browser audit and download; does not perform source review or queue work.
 ---
 
-# CNML post-download workflow
+# CNML post-download workflow — v2 review candidate
+
+Read the repository-root AGENTS.md before this workflow. The v1 coworker run was reported to write outside scope; do not call a new connector or make up steps when the runner is blocked. Use the generated operations only. Missing tools, duplicate rows and mismatched receipts are blockers. This skill cannot prevent an agent from bypassing its instructions; live validation in the receiving environment remains necessary.
 
 Read [execution.md](references/execution.md) before operating. The supplied executable helpers implement the downstream v60 mappings; [original-v60.md](references/original-v60.md) is the detailed reference. The following current rules supersede historical wording in that reference:
 

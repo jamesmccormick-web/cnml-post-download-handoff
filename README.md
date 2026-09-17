@@ -1,12 +1,14 @@
-# CNML post-download handoff
+# CNML post-download handoff — v2 review candidate
 
-Standalone Codex workflow that starts from a reviewed Download with State HTML upload and completes CNML sheet routing and the applicable proceeds notification or release-letter draft.
+The first coworker run was reported to create a duplicate Accounting Audit row and write outside the intended v60 scope. **Do not use the original v1 ZIP for further runs.** This rebuild is ready for review and read-only preflight; it has not yet passed a live run on Jacob's computer.
 
-- [Start here: setup and execution request](START-HERE.md)
-- [Download the handoff ZIP](cnml-post-download-handoff.zip)
-- [Codex skill](cnml-post-download/SKILL.md)
-- [Validation and limitations](VALIDATION.md)
+- [Setup and operator request](START-HERE.md)
+- [Version 2 ZIP](cnml-post-download-handoff.zip)
+- [Codex project execution rules](AGENTS.md)
+- [What failed, what is known, and what changed](REBUILD-REVIEW.md)
+- [Validation and remaining limits](VALIDATION.md)
+- [Supplied v60 reference](cnml-post-download/references/original-v60.md)
 
-The original end-to-end browser audit agent is separate and unchanged. This repository contains no live property files, credentials, or operational run histories. Required Runlayer connector access and sender permissions must be configured by the receiving operator. No schedule is included.
+The workflow starts only from a reviewed Download with State HTML file. It updates the three CNML Data Hub tabs, then prepares a positive-proceeds release-letter draft or sends the exact zero/negative-proceeds notification. The original end-to-end automation remains separate and unchanged.
 
-24 offline checks passed for the packaged workflow. See validation notes for scope and live-environment limitations.
+The repository contains code, documentation and synthetic tests, not live seller files, credentials or operational receipts. Use it as an opened Codex project so AGENTS.md is read. A generic chat with a repository URL is not evidence that the runner was used.

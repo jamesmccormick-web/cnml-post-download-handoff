@@ -26,6 +26,7 @@ export function parseTSV(text){
 export function cells(result,expectedRange,gridRange){
  assert(result.range===expectedRange,`Unexpected response range: ${result.range}`);
  assert(result.truncated!==true&&result.hasMore!==true&&!result.nextPageToken,'Incomplete range response');
+ assert(!/\btruncated\b|\brows? omitted\b|\.\.\.|…/i.test(result.content??''),'Incomplete or summarized range response');
  if(Array.isArray(result.values))return result.values;
  assert(typeof result.content==='string','Missing fetched content');
  const prefix=`Spreadsheet: '${expectedRange.match(/^'(.+)'!/)[1]}'\nRange: ${expectedRange}\n\n`;
@@ -66,15 +67,19 @@ function scan(s,i,purpose){
 }
 function found(s,i,purpose,rows){
  assert(rows.length<=1,`Duplicate token ${s.property.token} on ${SHEETS[i].name}: rows ${rows.join(', ')}`);
- if(purpose==='upfront'){s.rows[i]=rows[0]??null;return i<2?[scan(s,i+1,'upfront')]:(s.rows[2]?[fetchOp('prior-output',2,`P${s.rows[2]}:T${s.rows[2]}`)]:[startWrite(s,0)])}
+ if(purpose==='upfront'){s.rows[i]=rows[0]??null;return i<2?[fullScan(i+1,'upfront')]:[preflightStart(s)]}
  assert(rows.length===1,`Post-write token missing on ${SHEETS[i].name}`);
  assert(rows[0]===s.rows[i],`Row moved during write on ${SHEETS[i].name}: expected ${s.rows[i]}, actual ${rows[0]}`);
- if(purpose==='raw')return [startWrite(s,1)];
- if(purpose==='notes')return [startWrite(s,2)];
- if(purpose==='accounting'){s.sheetTransfer={verified:true,at:new Date().toISOString(),completionManagedBySheet:true};return [branchStart(s)]}
+ if(purpose==='raw')return [fetchOp('verify-written',0,`A${s.rows[0]}:R${s.rows[0]}`)];
+ if(purpose==='notes')return [fetchOp('verify-written',1,`A${s.rows[1]}:D${s.rows[1]}`)];
+ if(purpose==='accounting')return [fetchOp('verify-written',2,`D${s.rows[2]}`)];
  if(purpose==='final'){s.stage='complete';return []}
  throw new Error('Unknown scan purpose');
 }
+function preflightStart(s){
+ return s.rows[2]?fetchOp('prior-output',2,`P${s.rows[2]}:T${s.rows[2]}`):destinationPreflight(s);
+}
+function destinationPreflight(s){return s.property.branch==='positive'?op('folder-preflight','google_drive__get_metadata',{file_id:FOLDER},false,'letter'):startWrite(s,0)}
 function startWrite(s,i){
  return s.rows[i]?fetchOp('identity',i,`${SHEETS[i].key}${s.rows[i]}`,{purpose:'write'}):fullScan(i,'preappend');
 }
@@ -90,11 +95,63 @@ function branchStart(s){
 }
 const finalIdentity=s=>fetchOp('identity',2,`A${s.rows[2]}`,{purpose:'final'});
 const columnLetter=n=>{let out='';for(;n;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out};
+
+function assertCellValues(actual,expected){
+ const equal=(a,b)=>b===''?(a===undefined||a===null||a===''):typeof b==='number'?(typeof a==='number'?a===b:typeof a==='string'&&a.trim()!==''&&Number(a.replace(/[$,]/g,''))===b):a===b;
+ assert(actual.length<=expected.length&&expected.every((row,i)=>row.every((v,j)=>equal(actual[i]?.[j],v))),'Written values do not match the extracted packet');
+}
+export function assertOperation(s,o){
+ const p=s.property,r=s.rows[o.i],same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ const fail=()=>{throw new Error('Operation outside the v60 write contract; stop rather than improvise')};
+ if(!o.mutation){
+  assert(['mcp__google_sheets__fetch','mcp__google_sheets__get_metadata','mcp__google_drive__get_metadata','mcp__google_docs__fetch'].includes(o.tool),'Mutation cannot be disguised as a read');
+  if(o.tool.startsWith('mcp__google_sheets__'))assert(o.args.spreadsheet_id===HUB,'Wrong spreadsheet');
+  return;
+ }
+ let expected,tool,scope='sheets';
+ const sheet=(i,cell,values)=>({spreadsheet_id:HUB,range:range(i,cell),values:values.map(row=>row.map(transport))});
+ if(['write','subsidy','final-write'].includes(o.kind)){
+  assert(Number.isInteger(r)&&r>1,'Unverified target row');
+  tool='mcp__google_sheets__update';
+  if(o.kind==='write')expected=o.i===0?sheet(0,`A${r}:R${r}`,[p.manual]):o.i===1?sheet(1,`A${r}:D${r}`,[p.notes]):o.i===2?sheet(2,`D${r}`,[[p.estimatedCents===null?null:p.estimatedCents/100]]):fail();
+  if(o.kind==='subsidy'){assert(o.i===0,'Wrong subsidy sheet');expected=sheet(0,`V${r}`,[[p.subsidy]])}
+  if(o.kind==='final-write'){
+   assert(o.i===2,'Wrong final sheet');
+   if(p.branch==='positive'){assert(s.document?.token===p.token&&s.document?.sha256===p.sha256,'Foreign draft');expected=sheet(2,`T${r}`,[[`https://docs.google.com/document/d/${s.document.id}/edit`]])}
+   else {assert(s.emailReceipt?.token===p.token,'Confirmed email required');expected=sheet(2,`P${r}:Q${r}`,[['Automation','Zero Proceeds']])}
+  }
+ }else if(o.kind==='append'){
+  const proof=s.scanEvidence?.[o.i];
+  assert(proof?.purpose==='preappend'&&proof.rows.length===0&&proof.responseDigest,'Full fresh absence proof required before append');
+  tool='mcp__google_sheets__append';expected=sheet(o.i,`A:${o.i===0?'R':'D'}`,[rowValues(s,o.i)]);
+ }else if(o.kind==='scratch-write'||o.kind==='scratch-clear'){
+  const g=s.grids[o.i];assert(g&&g.columnCount>SHEETS[o.i].max,'Unsafe scratch column');
+  const key=SHEETS[o.i].key,ref=`${key}1:${key}20000`,tok=p.token.replaceAll('"','""');
+  const match=`ARRAYFORMULA(EXACT(TRIM(${ref}),"${tok}"))`;
+  const formula=`="COUNT:"&SUMPRODUCT(--${match})&";ROW:"&IFERROR(MATCH(TRUE,${match},0),0)`;
+  tool='mcp__google_sheets__update';expected=sheet(o.i,`${columnLetter(g.columnCount)}1`,[[o.kind==='scratch-write'?formula:'']]);
+ }else if(o.kind==='copy'){
+  assert(p.branch==='positive','No letter for zero/negative');assert(s.destinationVerified?.folder===FOLDER&&s.destinationVerified?.template===TEMPLATE,'Destination preflight required');scope='letter';tool='mcp__google_drive__copy_file';expected={file_id:TEMPLATE,new_name:`Cash Now More Later - ${p.address}`,parentFolderId:FOLDER};
+ }else if(o.kind==='share'){
+  assert(p.branch==='positive'&&s.document?.token===p.token&&s.document?.sha256===p.sha256,'Foreign draft');
+  scope='letter';tool='mcp__google_drive__share_file';expected={file_id:s.document?.id,type:'domain',domain:'opendoor.com',role:'reader'};
+ }else if(o.kind==='replace'||o.kind==='replace-single'||o.kind==='date'){
+  scope='letter';const c=communication(p,s.communication.date);assert(s.document?.token===p.token&&s.document?.sha256===p.sha256,'Foreign draft');
+  if(o.kind==='replace'){tool='mcp__google_docs__apply_doc_updates';expected={document_id:s.document.id,requests:c.requests}}
+  else {tool='mcp__google_docs__replace_text';if(o.kind==='date')expected={document_id:s.document.id,find:'Date:\nRe:',replace:`Date: ${c.date}\nRe:`};else{assert(Number.isInteger(o.replacementIndex)&&o.replacementIndex>=0&&o.replacementIndex<9,'Invalid replacement');const [find,replace]=c.replacements[o.replacementIndex];expected={document_id:s.document.id,find,replace,matchCase:false}}}
+ }else if(o.kind==='email'){
+  assert(p.branch==='negative'&&p.netCents<=0,'No seller email on positive branch');scope='email';tool='mcp__gmail__send_email';expected=communication(p,s.communication.date).email;
+ }else fail();
+ assert(o.tool===tool&&o.scope===scope&&same(o.args,expected),'Operation outside the v60 write contract; stop rather than improvise');
+}
+
+export function requiredTools(p){return ['mcp__google_sheets__get_metadata','mcp__google_sheets__fetch','mcp__google_sheets__update','mcp__google_sheets__append',...(p.branch==='positive'?['mcp__google_drive__get_metadata','mcp__google_drive__copy_file','mcp__google_drive__share_file','mcp__google_docs__apply_doc_updates','mcp__google_docs__replace_text','mcp__google_docs__fetch']:['mcp__gmail__send_email']),'apply_patch']}
 export function createState(property,{date,authorization={}}={}){
  assert(property.version===60&&property.manual.length===18&&property.notes.length===4,'Invalid v60 extraction');
  assert(property.branch!=='blocked','Unsupported sign: review required before deployment');
+ assert(Number.isSafeInteger(property.netCents)&&property.branch===(property.netCents<=0?'negative':'positive'),'Inconsistent proceeds branch');
  const comm=communication(property,date??new Intl.DateTimeFormat('en-US',{timeZone:'America/Phoenix',month:'long',day:'numeric',year:'numeric'}).format(new Date()));
- return {version:1,stage:'ready',property,propertyDigest:digest(property),communication:comm,authorization,rows:[null,null,null],grids:[],history:[],warnings:[...property.warnings],queue:[op('metadata','google_sheets__get_metadata',{spreadsheet_id:HUB})]};
+ return {version:2,stage:'ready',property,propertyDigest:digest(property),communication:comm,authorization,rows:[null,null,null],grids:[],scanEvidence:{},history:[],warnings:[...property.warnings],queue:[op('metadata','google_sheets__get_metadata',{spreadsheet_id:HUB})]};
 }
 export function nextOperation(s){
  assert(digest(s.property)===s.propertyDigest,'Property packet changed');
@@ -102,6 +159,7 @@ export function nextOperation(s){
  assert(s.stage!=='complete','Property already complete');
  assert(s.queue.length,'No next operation');
  const next=s.queue[0];
+ assertOperation(s,next);
  if(next.mutation)assert(s.authorization?.[next.scope]===true,`Preview stop: missing deployment authorization for ${next.scope}`);
  return next;
 }
@@ -113,6 +171,7 @@ export function begin(s){
 export function accept(s,envelope){
  assert(s.pending&&envelope.operationId===s.pending.id,'Response is not for this pending operation');
  const o=s.pending,p=s.property;let added=[];
+ assertOperation(s,o);
  // A documented atomic API rejection is safe to fall back from; a timeout is not.
  if(o.kind==='replace'&&envelope.result?.isError===true&&/\b(400|INVALID_ARGUMENT|not available|unknown tool)\b/i.test(JSON.stringify(envelope.result))&&!/timeout|timed out/i.test(JSON.stringify(envelope.result))){
   const [find,replace]=s.communication.replacements[0];
@@ -124,8 +183,8 @@ export function accept(s,envelope){
  if(o.tool.startsWith('mcp__google_sheets__')&&r.spreadsheetId)assert(r.spreadsheetId===HUB,'Wrong spreadsheet response');
  if(o.tool==='mcp__google_sheets__update')assert(r.updatedRange?.replaceAll("'",'')===o.args.range.replaceAll("'",''),'Update affected a different range');
  if(o.kind==='metadata'){
-  s.grids=SHEETS.map(sh=>{const matches=r.sheets.filter(x=>x.title===sh.name);assert(matches.length===1,'Missing or duplicate sheet title');const g=matches[0].gridProperties;assert(g.rowCount<=20000,'Sheet exceeds scan ceiling; widen protocol before proceeding');if(g.rowCount>=18000)s.warnings.push(`${sh.name} is approaching the 20,000-row scan ceiling.`);return {...g,scratch:`${columnLetter(g.columnCount)}1`}});
-  added=[scan(s,0,'upfront')];
+  s.grids=SHEETS.map(sh=>{const matches=r.sheets.filter(x=>x.title===sh.name);assert(matches.length===1,'Missing or duplicate sheet title');const g=matches[0].gridProperties;assert(Number.isInteger(g?.rowCount)&&g.rowCount>0&&Number.isInteger(g?.columnCount)&&g.columnCount>=sh.max,'Invalid sheet grid metadata');assert(g.rowCount<=20000,'Sheet exceeds scan ceiling; widen protocol before proceeding');if(g.rowCount>=18000)s.warnings.push(`${sh.name} is approaching the 20,000-row scan ceiling.`);return {...g,scratch:`${columnLetter(g.columnCount)}1`}});
+  added=[fullScan(0,'upfront')];
  }else if(o.kind==='scratch-probe'){
   const value=String(cells(r,o.args.range)[0]?.[0]??'');
   if(value!==''){
@@ -156,6 +215,7 @@ export function accept(s,envelope){
   else {assert((o.match[0]===0&&o.match[1]===0)||(o.match[0]===1&&o.match[1]>0&&o.match[1]<=20000),'Invalid count/row pair');added=found(s,o.i,o.purpose,o.match[0]?[o.match[1]]:[])}
  }else if(o.kind==='scan-result'){
   const rows=matchingRows(r,o.i,p.token,s.grids[o.i].rowCount);
+  s.scanEvidence??={};s.scanEvidence[o.i]={rows,purpose:o.purpose,responseDigest:digest(envelope.result),range:o.args.range};
   if(o.purpose==='preappend'){
    assert(rows.length<=1,`Duplicate token before append: ${rows}`);
    if(rows.length){s.rows[o.i]=rows[0];added=[startWrite(s,o.i)]}
@@ -164,7 +224,21 @@ export function accept(s,envelope){
  }else if(o.kind==='prior-output'){
   const values=cells(r,o.args.range)[0]??[];
   assert(!String(values[1]??'').trim()&&!String(values[4]??'').trim(),'Existing Accounting Audit proceeds status or letter link; reconcile prior work before any new business-data writes or communication');
+  added=[destinationPreflight(s)];
+ }else if(o.kind==='folder-preflight'){
+  assert(r.id===FOLDER&&r.mimeType==='application/vnd.google-apps.folder'&&r.trashed!==true,'Designated release-letter output folder is unavailable; never substitute another folder');
+  added=[op('template-preflight','google_drive__get_metadata',{file_id:TEMPLATE},false,'letter')];
+ }else if(o.kind==='template-preflight'){
+  assert(r.id===TEMPLATE&&r.mimeType==='application/vnd.google-apps.document'&&r.trashed!==true&&r.capabilities?.canCopy!==false,'Designated v60 template is unavailable or cannot be copied');
+  s.destinationVerified={folder:FOLDER,template:TEMPLATE};
   added=[startWrite(s,0)];
+ }else if(o.kind==='verify-written'){
+  const expected=o.i===2?[[p.estimatedCents===null?'':p.estimatedCents/100]]:[rowValues(s,o.i).map(transport)];
+  assertCellValues(cells(r,o.args.range),expected);
+  added=o.i===0?[fetchOp('verify-subsidy',0,`V${s.rows[0]}`)]:o.i===1?[startWrite(s,2)]:[branchStart(s)];
+  if(o.i===2)s.sheetTransfer={verified:true,at:new Date().toISOString(),completionManagedBySheet:true};
+ }else if(o.kind==='verify-subsidy'){
+  assertCellValues(cells(r,o.args.range),[[transport(p.subsidy)]]);added=[startWrite(s,1)];
  }else if(o.kind==='identity'){
   assert(String(cells(r,o.args.range)[0]?.[0]??'').trim()===p.token,`Token moved at ${o.args.range}; stop before writing`);
   if(o.purpose==='write')added=[write(s,o.i)];

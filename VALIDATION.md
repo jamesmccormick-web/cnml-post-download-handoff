@@ -1,19 +1,25 @@
-# Validation and separation
+# Version 2 validation — review candidate
 
-Built September 17, 2026 for Codex. The original end-to-end CNML automation was only read; no original skill, helper, checkpoint, ledger or operational record was edited. All six source files captured at the start still match their recorded SHA-256 values in source-hashes.json.
+Rebuilt September 17, 2026 after the reported failed coworker run. **Not certified for unattended production use.** The failure path on Jacob's computer is not yet established because its task transcript and receipts were not supplied.
 
-## Portable-copy changes
+## Results
 
-- The prepare command accepts an uploaded Download with State HTML file directly, rather than requiring the original browser-stage session.
-- Python is selected through CNML_PYTHON or python3; the original project's private virtual environment is not required.
-- Authorization records the operator's source-review, program-agreement email, and exclusive-processing confirmations.
-- An added prior-output check stops when the matched Accounting Audit row already has a proceeds status in Q or a draft link in T, before business-data writes or communication. This supplements the separate local ledger; it does not provide cross-computer locking or prove no unrecorded email was sent.
-- No changes to destination IDs, financial mappings, blank handling, email text, release-letter replacements, or branch result writes.
+- 33 offline regression checks passed in the package's independent Python environment; full results are in test-results.txt.
+- The skill frontmatter validator passed.
+- The supplied Downloads v60 file matches the bundled original-v60.md byte-for-byte.
+- The original end-to-end project's 327 captured files under automation, skills and runs have unchanged hashes compared with the start of this rebuild.
+- No live Google Sheet, Drive, Docs or Gmail mutations were performed during this rebuild. The existing duplicate and draft were not repaired.
 
-## Checks completed
+## What the added checks cover
 
-24 offline tests passed using a newly created independent Python virtual environment. These cover positive, negative and zero proceeds; one/two-seller handling; exact matching and blank row offsets; row moves and duplicates; scratch fallback; final letter-link checks; confirmed versus uncertain email receipts; uncertain copy prevention; direct tool-call emission/response preservation; uploaded-file preparation; source hash changes; duplicate/active ledger guards; and existing sheet outcome checks.
+An existing exact token at row 1465 is updated in place; an additional match at row 1475 stops all mutations. Complete TSV parsing preserves blank offsets; narrowed and explicitly truncated/summarized receipts are rejected. Accounting D receives the extracted estimate, positive T receives the current draft link, and positive P/Q plus all business G/U writes are rejected. Appends require a captured full fresh absence result. Wrong folder IDs and inaccessible folder/template preflight stop the positive workflow; a copy returned in another parent cannot advance. Written figures are read back before communication. Tool availability is recorded for the uploaded token/hash before execution.
 
-The skill frontmatter validator passed. Documentation links and ZIP contents were checked. No live sheet edits, emails, Drive copies, permission changes or scheduling were performed to build or test this handoff. Coworker connector access and Send As permissions still need verification in their own Codex environment. Text verification cannot establish document background shading; the workflow retains the manual formatting notice.
+Existing tests still cover positive/negative/zero branches, one/two sellers, exact full-column matching, duplicates beyond earlier row ceilings, row moves, scratch cleanup/fallback, uncertain copy/send receipt handling, fixed email content, nine letter replacements, and final link/status verification.
 
-The ZIP excludes virtual environments, live state files, run histories, credentials and private source documents. It includes the approved internal destination identifiers and source playbook. No repository was published and no package was uploaded or sent to the coworker.
+## Limits
+
+Tests simulate connector responses. They do not prove that a fresh Codex session on another machine will follow the runner, that its required direct tools are present, or that the account has folder and Send As access. AGENTS.md provides discoverable project routing, but it cannot technically prevent an agent with unrestricted tools from bypassing it. The next acceptance step is read-only preflight in Jacob's opened project; a later live test needs an explicit execution request and a property without unresolved prior work.
+
+Full-column checks depend on the connector honoring the requested range and accurately reporting completeness. The agent must preserve the complete original tool response, not manually reconstruct a summary. A local ledger is not a distributed lock. An unrecorded previous email requires operator reconciliation. Plain-text Docs verification cannot establish shading; the existing formatting limitation remains.
+
+Version 1 checkpoints are not silently upgraded or reset. Do not discard the failed run's receipts. This rebuild preserves v60 business mappings; additional controls and resolved historical contradictions are documented in REBUILD-REVIEW.md.

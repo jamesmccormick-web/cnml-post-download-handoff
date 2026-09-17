@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {createState,begin,accept,confirmation,matchingRows,range,SHEETS,HUB,TEMPLATE,FOLDER,communication,parseTSV} from '../proceeds-core.mjs';
+import {createState,begin,accept,confirmation,matchingRows,range,SHEETS,HUB,TEMPLATE,FOLDER,communication,parseTSV,assertOperation,requiredTools} from '../proceeds-core.mjs';
 test('full-column response may clamp header only to independently verified grid extent',()=>{
  const r={range:range(0,'B1:B20000'),content:"Spreadsheet: 'Manual Data Raw'\nRange: 'Manual Data Raw'!B1:B3\n\nToken\n\nTEST123"};
  assert.deepEqual(matchingRows(r,0,'TEST123',3),[3]);
@@ -44,8 +44,10 @@ function simulator(s,{missing=false,formula='evaluated',duplicate=false,batchRej
    scalars.set(o.args.range,o.args.values);return {updatedCells:o.args.values[0].length,updatedRange:o.args.range,spreadsheetId:HUB};
   }
   if(o.kind==='append'){
-   const row=1478;data[o.i].set(row,s.property.token);return {updatedRows:1,updatedRange:range(o.i,`A${row}:${o.i===0?'R':'D'}${row}`),spreadsheetId:HUB};
+   const row=1478;data[o.i].set(row,s.property.token);scalars.set(range(o.i,o.i===2?`D${row}`:`A${row}:${o.i===0?'R':'D'}${row}`),o.i===2?[[o.args.values[0][3]]]:o.args.values);return {updatedRows:1,updatedRange:range(o.i,`A${row}:${o.i===0?'R':'D'}${row}`),spreadsheetId:HUB};
   }
+  if(o.kind==='folder-preflight')return {id:FOLDER,mimeType:'application/vnd.google-apps.folder'};
+  if(o.kind==='template-preflight')return {id:TEMPLATE,mimeType:'application/vnd.google-apps.document',capabilities:{canCopy:true}};
   if(o.kind==='copy')return {id:'new-property-doc',originalFileId:TEMPLATE};
   if(o.kind==='document-location')return {id:'new-property-doc',parents:[FOLDER]};
   if(o.kind==='share')return {fileId:'new-property-doc',domain:'opendoor.com',role:'reader'};
@@ -151,6 +153,7 @@ test('CLI emits a runnable direct connector call and captures an untranscribed r
   for(const name of ['proceeds.mjs','proceeds-core.mjs'])await copyFile(resolve('automation',name),join(dir,'automation',name));
   const file=join(dir,'fixture_state.html');await writeFile(file,'fixture');
   const s=createState({...packet(),path:file,sha256:createHash('sha256').update('fixture').digest('hex')});const path=join(dir,'runs','state.json');
+  s.toolCheck={available:requiredTools(s.property)};
   await writeFile(path,JSON.stringify(s));await writeFile(join(dir,'runs','proceeds-ledger.json'),JSON.stringify({completed:{},documents:{},active:{path,token:s.property.token}}));
   const cli=join(dir,'automation','proceeds.mjs');const output=JSON.parse(execFileSync(process.execPath,[cli,'next',path],{encoding:'utf8'}));
   let captured='';const result={structuredContent:{sheets:SHEETS.map(sh=>({title:sh.name,gridProperties:{rowCount:2000,columnCount:45}}))}};
@@ -158,7 +161,7 @@ test('CLI emits a runnable direct connector call and captures an untranscribed r
   const body=captured.split('\n').slice(2,-1).map(line=>line.slice(1)).join('\n');const envelope=JSON.parse(body);assert.deepEqual(envelope.result,result);
   assert.throws(()=>execFileSync(process.execPath,[cli,'next',path],{stdio:'pipe'}),/Pending operation/);
   const responsePath=join(dir,'response.json');await writeFile(responsePath,body);execFileSync(process.execPath,[cli,'accept',path,responsePath],{stdio:'pipe'});
-  assert.equal(JSON.parse(await readFile(path,'utf8')).queue[0].kind,'scratch-probe');
+  assert.equal(JSON.parse(await readFile(path,'utf8')).queue[0].kind,'scan-result');
  }finally{await rm(dir,{recursive:true,force:true})}
 });
 test('extractor selects locked data-col values, 15 rows, reordered Table2, blank null and independent SF',async()=>{
@@ -203,10 +206,89 @@ test('standalone intake accepts uploaded HTML without browser state and preserve
   const scope={userInstruction:'Process this reviewed file',token:saved.property.token,sha256:saved.property.sha256,sheets:true,email:true,letter:false};
   await writeFile(approval,JSON.stringify(scope));assert.throws(()=>run('authorize',path,approval),/Operator must confirm/);
   await writeFile(approval,JSON.stringify({...scope,sourceReviewComplete:true,sellerEmailFromProgramAgreement:true,exclusiveProcessingConfirmed:true}));run('authorize',path,approval);
+  assert.throws(()=>run('next',path),/Run tools and accept-tools/);
+  const check=JSON.parse(run('tools',path));let toolBody='';
+  const fakeTools=Object.fromEntries(requiredTools(saved.property).map(n=>[n,async()=>({})]));fakeTools.apply_patch=async patch=>{toolBody=patch.split('\n').slice(2,-1).map(x=>x.slice(1)).join('\n');return {ok:true}};
+  await vm.runInNewContext(`(async()=>{${check.toolCall.code}})()`,{tools:fakeTools,text:()=>{}});
+  const toolFile=join(dir,'check.json');await writeFile(toolFile,toolBody);run('accept-tools',path,toolFile);
   await writeFile(input,html+'changed');assert.throws(()=>run('next',path),/Source file changed/);
   await writeFile(input,html);
   const ledger=join(dir,'runs','proceeds-ledger.json');await writeFile(ledger,JSON.stringify({active:null,documents:{},completed:{UPLOAD123:{sha256:saved.property.sha256}}}));
   assert.throws(()=>run('prepare',join(dir,'runs','repeat.json'),input),/already completed/);
   const original=join(dir,'original.html');await writeFile(original,html);assert.throws(()=>run('prepare',join(dir,'runs','bad.json'),original),/Download with State/);
  }finally{await rm(dir,{recursive:true,force:true})}
+});
+
+test('existing row 1465 is updated in place; estimate and draft link stay on that row',()=>{
+ const s=state('positive'),sim=simulator(s,{formula:'occupied'});
+ for(const sheet of sim.data){sheet.clear();sheet.set(1465,s.property.token)}
+ sim.run();
+ assert.equal(s.stage,'complete');assert.deepEqual(s.rows,[1465,1465,1465]);
+ assert.ok(!sim.calls.some(o=>o.kind==='append'));
+ const accounting=sim.calls.filter(o=>o.tool==='mcp__google_sheets__update'&&o.args.range.startsWith("'Accounting Audit'!"));
+ assert.deepEqual(accounting.map(o=>o.args.range),[range(2,'D1465'),range(2,'T1465')]);
+ assert.deepEqual(accounting[0].args.values,[[150]]);
+ assert.equal(sim.calls.find(o=>o.kind==='copy').args.parentFolderId,FOLDER);
+ const firstMutation=sim.calls.findIndex(o=>o.mutation);
+ assert.equal(sim.calls.slice(0,firstMutation).filter(o=>o.kind==='scan-result'&&o.purpose==='upfront').length,3);
+ assert.ok(sim.calls.slice(0,firstMutation).some(o=>o.kind==='folder-preflight'));
+ assert.ok(sim.calls.slice(0,firstMutation).some(o=>o.kind==='template-preflight'));
+});
+test('duplicate at rows 1465 and 1475 stops before any mutation on any sheet',()=>{
+ const s=state('positive'),sim=simulator(s);
+ for(const sheet of sim.data){sheet.clear();sheet.set(1465,s.property.token)}
+ sim.data[2].set(1475,s.property.token);
+ assert.throws(()=>sim.run(),/1465, 1475/);
+ assert.ok(!sim.calls.some(o=>o.mutation));
+});
+test('complete TSV preserves distant row indices; narrow and summarized receipts fail closed',()=>{
+ const token='CASE1465',expected=range(2,'A1:A20000');
+ const rows=Array.from({length:1477},(_,i)=>i===0?'Token':i===1464?token:'');
+ const receipt={range:expected,content:`Spreadsheet: 'Accounting Audit'\nRange: ${expected}\n\n${rows.join('\n')}`};
+ assert.deepEqual(matchingRows(receipt,2,token,2000),[1465]);
+ for(const bad of [{...receipt,range:range(2,'A1400:A1500')},{...receipt,content:receipt.content+'\n... 20 rows omitted'},{...receipt,hasMore:true},{...receipt,nextPageToken:'next'},{...receipt,truncated:true}])assert.throws(()=>matchingRows(bad,2,token,2000));
+});
+test('write contract rejects Accounting G/U, fabricated status, wrong row and wrong estimate',()=>{
+ const s=state('positive'),sim=simulator(s,{formula:'occupied'});sim.run('write');
+ const template={kind:'write',tool:'mcp__google_sheets__update',mutation:true,scope:'sheets',i:2,args:{spreadsheet_id:HUB,range:range(2,'D1439'),values:[[150]]}};
+ assertOperation(s,template);
+ for(const [cell,values] of [['G1439',[['Rerun completed; release letter drafted']]],['U1439',[['https://example.com/calculator']]],['Q1439',[['Pending draft']]],['D1475',[[150]]],['D1439',[[999]]]])assert.throws(()=>assertOperation(s,{...template,args:{...template.args,range:range(2,cell),values}}),/contract/);
+ assert.throws(()=>assertOperation(s,{...template,mutation:false}),/disguised/);
+ const done=state('positive'),flow=simulator(done);flow.run('final-write');
+ assert.throws(()=>assertOperation(done,{...done.pending,args:{...done.pending.args,range:range(2,'P1439:Q1439'),values:[['Automation','Pending draft']]}}),/contract/);
+});
+test('append cannot use a guessed missing-row result or add a broad Accounting row',()=>{
+ const s=state(),sim=simulator(s,{missing:true});sim.run('append');
+ assertOperation(s,s.pending);
+ const bad=structuredClone(s);bad.scanEvidence[0].purpose='upfront';assert.throws(()=>assertOperation(bad,bad.pending),/absence proof/);
+ const p=structuredClone(s);p.rows[2]=null;p.scanEvidence[2]={purpose:'preappend',rows:[],responseDigest:'captured'};
+ assert.throws(()=>assertOperation(p,{kind:'append',tool:'mcp__google_sheets__append',mutation:true,scope:'sheets',i:2,args:{spreadsheet_id:HUB,range:range(2,'A:U'),values:[Array(21).fill('invented')]}}),/contract/);
+});
+test('wrong or inaccessible folder stops positive workflow before sheet edits or copying',()=>{
+ const s=state('positive'),sim=simulator(s);sim.run('folder-preflight');
+ for(const result of [{id:'wrong',mimeType:'application/vnd.google-apps.folder'},{id:FOLDER,mimeType:'application/vnd.google-apps.document'},{id:FOLDER,mimeType:'application/vnd.google-apps.folder',trashed:true}])assert.throws(()=>accept(structuredClone(s),response(s,result)),/folder is unavailable/);
+ assert.ok(!sim.calls.some(o=>o.mutation));
+ const c=state('positive'),flow=simulator(c);flow.run('copy');
+ assert.throws(()=>assertOperation(c,{...c.pending,args:{...c.pending.args,parentFolderId:'personal-root'}}),/contract/);
+});
+test('copy in wrong folder cannot advance to sharing or post a draft link',()=>{
+ const s=state('positive'),sim=simulator(s);sim.run('document-location');
+ assert.throws(()=>accept(s,response(s,{id:s.document.id,parents:['wrong-folder']})),/designated output folder/);
+ assert.ok(!sim.calls.some(o=>o.kind==='final-write'||o.kind==='share'));
+});
+test('wrong estimate readback blocks communication even after successful sheet update receipts',()=>{
+ const s=state('positive'),sim=simulator(s);
+ for(let n=0;n<150;n++){
+  const o=begin(s);
+  if(o.kind==='verify-written'&&o.i===2){assert.throws(()=>accept(s,response(s,{range:o.args.range,values:[[999]]})),/Written values/);break}
+  accept(s,response(s,sim.respond(o)));
+ }
+ assert.equal(s.sheetTransfer,undefined);assert.ok(!sim.calls.some(o=>o.kind==='copy'||o.kind==='email'));
+});
+test('email and sharing destinations cannot be replaced by improvised values',()=>{
+ const s=state(),sim=simulator(s);sim.run('email');
+ assert.throws(()=>assertOperation(s,{...s.pending,args:{...s.pending.args,to:'wrong@example.com'}}),/contract/);
+ assert.throws(()=>assertOperation(s,{...s.pending,args:{...s.pending.args,body:'Different message'}}),/contract/);
+ const p=state('positive'),flow=simulator(p);flow.run('share');
+ assert.throws(()=>assertOperation(p,{...p.pending,args:{...p.pending.args,type:'anyone'}}),/contract/);
 });

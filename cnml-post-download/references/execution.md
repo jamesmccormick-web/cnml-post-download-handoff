@@ -2,6 +2,10 @@
 
 Run local commands from the `cnml-post-download` folder. This package is standalone: it has no dependency on the original browser agent, its run ledger, or its Python environment.
 
+## Version 2: project routing
+
+Read the repository-root AGENTS.md first. Do not execute handwritten connector mutations or modify runtime guards to work around a failure. Version 1 checkpoints require reconciliation and are not silently upgraded.
+
 ## Dependencies and tool check
 
 Node.js 18+ and Python 3.9+ with BeautifulSoup are required. Use an existing suitable Python runtime or create `.venv` locally and install the pinned `automation/requirements.txt` using pip. Point `CNML_PYTHON` to the actual Python executable if it is not `python3`. This environment variable is optional and is not a credential. Do not copy another person's virtual environment.
@@ -33,7 +37,10 @@ Inspect the local `runs/proceeds-ledger.json` and existing states first. A pendi
 ```sh
 node automation/proceeds.mjs prepare runs/property/downstream.json /absolute/path/property_state.html
 node automation/proceeds.mjs preview runs/property/downstream.json
+node automation/proceeds.mjs tools runs/property/downstream.json
 ```
+
+Execute the emitted read-only local tool-availability check and run its `accept-tools` command. It records the actual callable names for this file. Missing tools stop execution. This does not certify sender permissions. A preview-only run may then execute/accept emitted read-only operations; stop before any operation marked `mutation:true` (including scratch formulas). Without live scope the runner itself blocks mutations.
 
 `prepare` validates the suffix and structure, parses the uploaded file once, hashes its bytes, validates seller/contact data and branch, and creates a local checkpoint. It makes no external calls. It does not certify the upstream archive or source review.
 
@@ -71,7 +78,7 @@ This stores one pending intent and emits the exact direct MCP call plus its acce
 
 A reported error keeps the pending intent. Read its captured response. Never delete or reset the checkpoint or ledger to pass a guard. A copy or send may have succeeded even when the tool timed out. Escalate ambiguous outcomes for reconciliation; do not call an unapproved search tool or automatically send/copy again.
 
-The portable copy reads Accounting Audit P:T after locating rows and blocks when Q or T already contains an outcome. That check is evidence of prior work, not permission to overwrite it. It cannot discover an earlier unrecorded send, and it is not an atomic cross-computer lock.
+Version 2 first scans all three complete token columns without any mutation, then reads Accounting Audit P:T after locating rows and blocks when Q or T already contains an outcome. For positive files it next reads the exact folder/template metadata before business writes. Every emitted mutation is checked against the exact v60 range, values, scope and destination; every business-data write is read back before final communication. That prior-output check is evidence of prior work, not permission to overwrite it. It cannot discover an earlier unrecorded send, and it is not an atomic cross-computer lock.
 
 The completed summary is available only after final verification:
 
