@@ -1,0 +1,6 @@
+interface:
+  display_name: "CNML Download with State"
+  short_description: "Process CNML state downloads across new chats"
+  default_prompt: "Use $cnml-post-download to process the attached reviewed Download with State automatically through its configured upload-trigger workflow without routine reconfirmation and resume any existing checkpoint."
+policy:
+  allow_implicit_invocation: true

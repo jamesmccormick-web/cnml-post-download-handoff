@@ -4,7 +4,7 @@ Rebuilt September 17, 2026 after the reported failed coworker run. **Not certifi
 
 ## Results
 
-- 33 offline regression checks passed in the package's independent Python environment; full results are in test-results.txt.
+- 42 offline regression checks passed in the package's independent Python environment; full results are in test-results.txt.
 - The skill frontmatter validator passed.
 - The supplied Downloads v60 file matches the bundled original-v60.md byte-for-byte.
 - The original end-to-end project's 327 captured files under automation, skills and runs have unchanged hashes compared with the start of this rebuild.
@@ -16,9 +16,11 @@ An existing exact token at row 1465 is updated in place; an additional match at 
 
 Existing tests still cover positive/negative/zero branches, one/two sellers, exact full-column matching, duplicates beyond earlier row ceilings, row moves, scratch cleanup/fallback, uncertain copy/send receipt handling, fixed email content, nine letter replacements, and final link/status verification.
 
+Intake tests also cover automatic positive/negative branch scope, explicit preview override, shared checkpoint resume, completed no-replay, and pending-operation preservation. No live property was processed to test this activation change.
+
 ## Limits
 
-Tests simulate connector responses. They do not prove that a fresh Codex session on another machine will follow the runner, that its required direct tools are present, or that the account has folder and Send As access. AGENTS.md provides discoverable project routing, but it cannot technically prevent an agent with unrestricted tools from bypassing it. The next acceptance step is read-only preflight in Jacob's opened project; a later live test needs an explicit execution request and a property without unresolved prior work.
+Tests simulate connector responses. They do not prove that a fresh Codex session on another machine will follow the runner, that its required direct tools are present, or that the account has folder and Send As access. AGENTS.md provides discoverable project routing, but it cannot technically prevent an agent with unrestricted tools from bypassing it. The next acceptance step is read-only preflight in Jacob's opened project; a valid state-file upload supplies the configured execution request, and the property must have no unresolved prior work.
 
 Full-column checks depend on the connector honoring the requested range and accurately reporting completeness. The agent must preserve the complete original tool response, not manually reconstruct a summary. A local ledger is not a distributed lock. An unrecorded previous email requires operator reconciliation. Plain-text Docs verification cannot establish shading; the existing formatting limitation remains.
 

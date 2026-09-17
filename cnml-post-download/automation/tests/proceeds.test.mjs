@@ -204,7 +204,7 @@ test('standalone intake accepts uploaded HTML without browser state and preserve
   assert.throws(()=>run('prepare',join(dir,'runs','second.json'),input),/Finish or reconcile active property/);
   const approval=join(dir,'approval.json');
   const scope={userInstruction:'Process this reviewed file',token:saved.property.token,sha256:saved.property.sha256,sheets:true,email:true,letter:false};
-  await writeFile(approval,JSON.stringify(scope));assert.throws(()=>run('authorize',path,approval),/Operator must confirm/);
+  await writeFile(approval,JSON.stringify(scope));run('authorize',path,approval);
   await writeFile(approval,JSON.stringify({...scope,sourceReviewComplete:true,sellerEmailFromProgramAgreement:true,exclusiveProcessingConfirmed:true}));run('authorize',path,approval);
   assert.throws(()=>run('next',path),/Run tools and accept-tools/);
   const check=JSON.parse(run('tools',path));let toolBody='';

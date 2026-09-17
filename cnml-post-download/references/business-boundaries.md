@@ -2,7 +2,7 @@
 
 This repository handles ONLY the workflow after a reviewed Download with State HTML upload. It is separate from the end-to-end browser audit project.
 
-Before responding to an uploaded `_state.html` or an instruction to process CNML proceeds, read `cnml-post-download/SKILL.md` and `cnml-post-download/references/execution.md`. Execute the packaged runner; do not invent a replacement workflow, use a browser to edit Sheets, run calculator scripts, or hand-author connector mutations.
+Use the installed SKILL.md and execution.md entry points. Execute the packaged runner; do not invent a replacement workflow, use a browser to edit Sheets, run calculator scripts, or hand-author connector mutations.
 
 ## Required execution boundary
 
@@ -25,8 +25,6 @@ A fresh-row append is not a general authorization to populate other columns. Nev
 
 The release-letter template and output folder are the exact identifiers in the runner and v60 reference. An inaccessible folder/template stops the positive path before business writes; do not make a new folder, copy into My Drive, or substitute a calculator/archive folder. Verify the returned copy's parent and domain sharing before letter completion. Never claim a draft was shared based only on its URL.
 
-## Rebuild acceptance
+## Installation boundary
 
-Version 2 is a review candidate after a reported failed coworker run. Offline tests are not proof of live execution on Jacob's computer. Default to preview/read-only preflight when asked to validate the rebuild. A valid state-file upload is the configured execution request; no second prompt is required. Never clean up the reported duplicate or move/share its draft as part of a rebuild request.
-
-Retain the original agent unchanged. No schedule, signing, payout or seller delivery of a positive release letter.
+A setup request does not execute a live property. Preserve the original browser agent. No schedule, signing, payout or seller delivery of a positive release letter.

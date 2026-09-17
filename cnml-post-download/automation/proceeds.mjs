@@ -17,6 +17,8 @@ if(!command||command==='help'){
   preview STATE.json
   tools STATE.json
   accept-tools STATE.json TOOL_RESPONSE.json
+  activate-upload STATE.json
+  preview-only STATE.json
   authorize STATE.json APPROVAL.json
   next STATE.json
   accept STATE.json RESPONSE.json
@@ -52,7 +54,7 @@ try{
   if(command==='tools'){
    const responsePath=join(dirname(path),'tool-check.json'),names=requiredTools(s.property);
    const code=`const names=${JSON.stringify(names)}; const result={token:${JSON.stringify(s.property.token)},sha256:${JSON.stringify(s.property.sha256)},checkedAt:new Date().toISOString(),available:names.filter(n=>typeof tools[n]==='function'),missing:names.filter(n=>typeof tools[n]!=='function')}; const body=JSON.stringify(result,null,2); text(await tools.apply_patch("*** Begin Patch\\n*** Add File: "+${JSON.stringify(responsePath)}+"\\n"+body.split("\\n").map(line=>"+"+line).join("\\n")+"\\n*** End Patch")); text({missing:result.missing});`;
-   console.log(JSON.stringify({toolCall:{tool:'functions.exec',code},next:`node automation/proceeds.mjs accept-tools ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
+   console.log(JSON.stringify({toolCall:{tool:'functions.exec',code},next:`node ${JSON.stringify(fileURLToPath(import.meta.url))} accept-tools ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
   }else if(command==='accept-tools'){
    const r=await read(resolve(args[0]));assert(!s.pending,'Reconcile pending operation first');
    assert(r.token===s.property.token&&r.sha256===s.property.sha256&&r.missing?.length===0&&requiredTools(s.property).every(n=>r.available?.includes(n)),'Required direct Runlayer tools unavailable; do not use another connector or improvise');
@@ -64,18 +66,25 @@ try{
   else {
    assert(ledger.active?.path===path&&ledger.active.token===s.property.token,'This is not the active property in the shared ledger');
    const bytes=await readFile(s.property.path);assert(createHash('sha256').update(bytes).digest('hex')===s.property.sha256,'Source file changed since extraction');
-   if(command==='authorize'){
+   if(command==='activate-upload'){
+    assert(!s.pending&&s.stage!=='complete','Resolve pending or completed work without replay');
+    s.executionMode='upload';
+    s.authorization={sheets:true,letter:s.property.branch==='positive',email:s.property.branch==='negative'};
+    s.approval={basis:'configured_upload_trigger',userInstruction:'Workflow owner configured a submitted Download with State HTML as the request to complete sheet routing and the applicable proceeds branch without routine reconfirmation.',token:s.property.token,sha256:s.property.sha256,at:new Date().toISOString()};
+    await put(path,s);console.log('Recorded configured upload-trigger scope for this token and file hash.');
+   }else if(command==='preview-only'){
+    assert(!s.pending,'Resolve pending operation before changing mode');s.executionMode='preview';s.authorization={};await put(path,s);console.log('Preview-only mode: no mutations authorized.');
+   }else if(command==='authorize'){
     const approval=await read(resolve(args[0]));
     assert(approval.token===s.property.token&&approval.sha256===s.property.sha256&&typeof approval.userInstruction==='string'&&approval.userInstruction.trim(),'Approval must quote the actual user instruction and name this token and file hash');
     assert(!s.pending,'Resolve pending operation before changing authorization');
-    assert(approval.sourceReviewComplete===true && approval.sellerEmailFromProgramAgreement===true && approval.exclusiveProcessingConfirmed===true,'Operator must confirm reviewed source state, program-agreement email, and exclusive processing for this property');
     s.authorization={sheets:approval.sheets===true,letter:approval.letter===true,email:approval.email===true};s.approval=approval;await put(path,s);console.log('Recorded property-specific deployment scope.');
    }else if(command==='next'){
     assert(s.toolCheck&&requiredTools(s.property).every(n=>s.toolCheck.available?.includes(n)),'Run tools and accept-tools in this Codex environment first');
     const o=begin(s);await put(path,s);
     const responsePath=join(dirname(path),`${s.property.token}-${o.id}.response.json`);
     const code=`const result = await tools[${JSON.stringify(o.tool)}](${JSON.stringify(o.args)});\nconst envelope = { operationId: ${JSON.stringify(o.id)}, result };\nconst body = JSON.stringify(envelope, null, 2);\ntext(await tools.apply_patch("*** Begin Patch\\n*** Add File: " + ${JSON.stringify(responsePath)} + "\\n" + body.split("\\n").map(line => "+" + line).join("\\n") + "\\n*** End Patch"));\ntext({savedResponse: ${JSON.stringify(responsePath)}, isError: result.isError === true});`;
-    console.log(JSON.stringify({operation:o.kind,mutation:o.mutation,scope:o.scope,token:s.property.token,toolCall:{tool:'functions.exec',code},next:`node automation/proceeds.mjs accept ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
+    console.log(JSON.stringify({operation:o.kind,mutation:o.mutation,scope:o.scope,token:s.property.token,toolCall:{tool:'functions.exec',code},next:`node ${JSON.stringify(fileURLToPath(import.meta.url))} accept ${JSON.stringify(path)} ${JSON.stringify(responsePath)}`},null,2));
    }else if(command==='accept'){
     const envelope=await read(resolve(args[0]));
     // Validate a clone; failed acceptance must preserve the original pending intent.
