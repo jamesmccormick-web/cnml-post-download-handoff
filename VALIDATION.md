@@ -5,3 +5,5 @@
 The update recognizes the exact empty-single-cell connector response, accepts only line-break flattening for text-only notes readback, and retains existing Opendoor Editor access in the verified output folder. Tests also reject missing expected amounts, malformed/truncated responses, altered notes, wrong folders, foreign drafts and other domains.
 
 The live run's property data and receipts remain local and are not distributed. Visual paragraph/table shading was not independently verified. Jacob's environment has not been tested; required Runlayer tools and account access must be available. Preserve each installation's runs directory during upgrades. Local ledgers do not coordinate different computers; existing sheet outcomes and uncertain operations remain stop conditions.
+
+September 18 compatibility update: 48 tests pass, including execution of generated tool checks and operations for both profiles, full receipt persistence, arbitrary-binding rejection, and pending-operation replay protection. No live business operations were performed for this update.

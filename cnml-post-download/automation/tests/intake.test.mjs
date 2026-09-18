@@ -17,7 +17,7 @@ async function setup(fn){
  try{
   const skill=join(dir,'installed skill'),a=join(dir,'chat A'),b=join(dir,'chat B');
   await Promise.all([mkdir(join(skill,'automation'),{recursive:true}),mkdir(a),mkdir(b)]);
-  for(const file of ['intake.mjs','proceeds.mjs','proceeds-core.mjs','extract_proceeds.py'])await copyFile(join(source,file),join(skill,'automation',file));
+  for(const file of ['tool-bindings.mjs','intake.mjs','proceeds.mjs','proceeds-core.mjs','extract_proceeds.py'])await copyFile(join(source,file),join(skill,'automation',file));
   const input=join(a,'property_state.html');await writeFile(input,html());
   const intake=(p=input,cwd=a,...flags)=>JSON.parse(execFileSync(process.execPath,[join(skill,'automation/intake.mjs'),p,...flags],{cwd,encoding:'utf8',stdio:'pipe'}));
   const cli=(...args)=>JSON.parse(execFileSync(process.execPath,[join(skill,'automation/proceeds.mjs'),...args],{cwd:b,encoding:'utf8',stdio:'pipe'}));
@@ -71,4 +71,27 @@ test('explicit preview prevents mutations even when the same upload previously a
 test('positive upload activates sheets and letter only, without a second request',()=>setup(async({intake,input})=>{
  await writeFile(input,html().replace('net-neg','net-pos').replace('-$10.00','$10.00'));
  const first=intake();const s=JSON.parse(await readFile(first.checkpoint));assert.deepEqual(s.authorization,{sheets:true,letter:true,email:false});
+}));
+
+for (const profile of ['direct','runlayer-catalog']) test(`emitted ${profile} check and call execute unchanged and preserve receipts`,()=>setup(async({intake,cli})=>{
+ const first=intake();
+ const emitted=cli('tools',first.checkpoint,...(profile==='direct'?[]:['--runlayer-catalog']));
+ const writes=[]; const calls=[];
+ const names=profile==='direct'?['mcp__google_sheets__get_metadata','mcp__google_sheets__fetch','mcp__google_sheets__update','mcp__google_sheets__append','mcp__gmail__send_email']:['google_she_get_metadata','google_she_fetch','update','append','send_email'];
+ const tools=Object.fromEntries(names.map(n=>[n,async args=>{calls.push({n,args});return {structuredContent:{sentinel:'full response'}};}]));
+ tools.apply_patch=async patch=>{
+  assert.ok(patch.startsWith('*** Begin Patch\n*** Add File: '));
+  const lines=patch.split('\n'); const path=lines[1].slice(14);
+  const body=lines.slice(2,-1).map(l=>{assert.ok(l.startsWith('+'));return l.slice(1);}).join('\n');
+  await writeFile(path,body); writes.push(JSON.parse(body));
+ };
+ const execute=code=>new Function('tools','text',`return (async()=>{${code}})()`)(tools,()=>{});
+ await execute(emitted.toolCall.code);
+ assert.equal(writes[0].missing.length,0);
+ execFileSync(process.execPath,[first.runner,'accept-tools',first.checkpoint,join(first.checkpoint,'../tool-check.json')]);
+ const operation=cli('next',first.checkpoint); await execute(operation.toolCall.code);
+ assert.equal(calls.length,1); assert.equal(calls[0].n,names[0]);
+ assert.equal(calls[0].args.spreadsheet_id,'1ox5xlhexTMMWVSi24rm76MxTRf6iSUsPG0P2zAGBe8M');
+ assert.deepEqual(writes[1].result,{structuredContent:{sentinel:'full response'}});
+ assert.throws(()=>cli('next',first.checkpoint),/Pending operation/);
 }));

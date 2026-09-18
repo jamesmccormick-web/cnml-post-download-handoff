@@ -166,7 +166,7 @@ test('CLI emits a runnable direct connector call and captures an untranscribed r
  const dir=await mkdtemp(join(tmpdir(),'cnml-entry-'));
  try{
   await mkdir(join(dir,'automation'));await mkdir(join(dir,'runs'));
-  for(const name of ['proceeds.mjs','proceeds-core.mjs'])await copyFile(resolve('automation',name),join(dir,'automation',name));
+  for(const name of ['tool-bindings.mjs','proceeds.mjs','proceeds-core.mjs'])await copyFile(resolve('automation',name),join(dir,'automation',name));
   const file=join(dir,'fixture_state.html');await writeFile(file,'fixture');
   const s=createState({...packet(),path:file,sha256:createHash('sha256').update('fixture').digest('hex')});const path=join(dir,'runs','state.json');
   s.toolCheck={available:requiredTools(s.property)};
@@ -206,7 +206,7 @@ test('standalone intake accepts uploaded HTML without browser state and preserve
  const dir=await mkdtemp(join(tmpdir(),'cnml-upload-'));
  try{
   await mkdir(join(dir,'automation'));
-  for(const name of ['proceeds.mjs','proceeds-core.mjs','extract_proceeds.py'])await copyFile(resolve('automation',name),join(dir,'automation',name));
+  for(const name of ['tool-bindings.mjs','proceeds.mjs','proceeds-core.mjs','extract_proceeds.py'])await copyFile(resolve('automation',name),join(dir,'automation',name));
   const rows=Array.from({length:15},(_,i)=>`<tr data-row-id="row${i}"><td></td><td>Subject ${i}</td><td data-col="credit">$5.00</td><td data-col="debit">$20.00</td><td class="ap">$0.00</td></tr>`).join('');
   const field=(k,v)=>`<tr><td>${k}</td><td class="editable">${v}</td></tr>`;
   const html=`<h1>123 Test Ln</h1><div>Flip Token: UPLOAD123 · CP Version: v45</div><table id="upside"><tbody>${rows}</tbody><tfoot><tr><td id="up-net" class="net-neg">-$10.00</td></tr></tfoot></table><table><tr><th>Field</th></tr>${field('Seller Full Name','Test Seller')}${field('Seller Email','seller@example.com')}${field('Estimated Upside Proceeds','$1.00')}</table>`;

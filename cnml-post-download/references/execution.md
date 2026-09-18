@@ -75,3 +75,17 @@ The state separates `sheetTransfer.verified` from final completion. Report parti
 | Accounting Audit | D = estimated proceeds; positive branch T = this property's new draft link; zero/negative P/Q = Automation / Zero Proceeds after confirmed send |
 
 Raw S:U and Snowflake reference columns are not write targets. Match exact case-sensitive trimmed tokens over the complete 20,000-row protocol, preserve blank row offsets, reject grids larger than the ceiling, verify row identity immediately before writes and perform post-write duplicate checks. Existing scratch content is preserved; only this run's owned formula is cleared.
+
+## Runlayer catalog compatibility — September 18
+
+When the connected Runlayer catalog exposes `google_she_get_metadata`, `google_she_fetch`, `update`, `append`, and `send_email`, refresh the tool check using:
+
+```sh
+node automation/proceeds.mjs tools /absolute/path/to/downstream.json --runlayer-catalog
+```
+
+Execute the emitted check, then its `accept-tools` command. Continue the normal emitted `next → execute once → accept` sequence. This profile is only for the confirmed Runlayer Sheets/Gmail definitions, including Gmail's `from` argument. Verify that provenance in the current tool catalog before selecting it; a generic matching name from another integration is not sufficient. Do not hand-author calls or rename checkpoint operations.
+
+The default direct profile is unchanged. The explicit catalog profile maps only these five approved names; positive-proceeds Drive/Docs capabilities still require their original bindings. Both profiles require `functions.exec`, a callable `tools` object, and `apply_patch` for durable receipts. If the host lacks these execution capabilities, stop and report that limitation; catalog visibility alone is insufficient.
+
+Update installed skill code in place, preserving `runs/`, ledger, receipts, and source files. Resume the existing checkpoint. Resolve any pending operation using its saved receipt before refreshing the tool check; never retry an uncertain operation. No new upload or ledger is needed for Jacob's blocked, pre-operation checkpoint.
