@@ -1,8 +1,15 @@
 {
-  "automation/proceeds.mjs": "441002f1d8e452518da466b2299cfe09c919ee4dfa6a06f4541ae4f56bb46326",
-  "automation/proceeds-core.mjs": "caf506d7c08a61bb1a3afea250f987a10f7fbdce2a7df63891c6a32e08fa247a",
-  "automation/extract_proceeds.py": "0f830cb994e6fca9b6cc66f8c7087aed963c8621ca838aa187a8995fa64ee7b2",
-  "automation/requirements.txt": "7b5d7f83af7d189b08ce3184cd5d47bd18d34b0732da4749a394ca2d6e3adb5b",
-  "automation/tests/proceeds.test.mjs": "ea5582b534241f7e185c1853b3b765822daaa7a97bda8319c0d672084cbb9781",
-  "playbooks/Cash_Plus_Upside_Proceeds_Prompt_v60.md": "3cafe7c352acb2e6869cc31a9b84dea6d1bae633bcaa956cb4a80e1f294cd07f"
+  "cnml-post-download/.gitignore": "cb71018bc7ceedf997d401c3a54b57e4d86a162fa7e3e6358bfe9706790e8dba",
+  "cnml-post-download/SKILL.md": "0ac485c531553bf4da18a559085a4790233ac3c4024ddb30da709501ed74ace3",
+  "cnml-post-download/agents/openai.yaml": "10e8499187955bae922fb2c7cd518866f93d69793963b71f2bb09b0cb378b7d4",
+  "cnml-post-download/automation/extract_proceeds.py": "0f830cb994e6fca9b6cc66f8c7087aed963c8621ca838aa187a8995fa64ee7b2",
+  "cnml-post-download/automation/intake.mjs": "65cbee0e4803a8ed6a72458658e3a4d819b3282d380d58413aabd54705fe3833",
+  "cnml-post-download/automation/proceeds-core.mjs": "c52fa38e78ade7cf4e5f282f2686dca5b164b32becd59ff76b4df383bc386159",
+  "cnml-post-download/automation/proceeds.mjs": "92b04871b5e9c840547adbcb8e049db58b6bf927d227d251f4c9c82951e8c502",
+  "cnml-post-download/automation/requirements.txt": "7b5d7f83af7d189b08ce3184cd5d47bd18d34b0732da4749a394ca2d6e3adb5b",
+  "cnml-post-download/automation/tests/intake.test.mjs": "95eaeaf43abd2047f867f29cdd354cea95384a575c8b19bb4e431d9f556729a5",
+  "cnml-post-download/automation/tests/proceeds.test.mjs": "6a58350eea532b2cc96ec578e26b46844762e9a72051fd91b0bfe0acd5975159",
+  "cnml-post-download/references/business-boundaries.md": "7d60012432e7d052445f0a747d5683e89a2fd3d5e1afc95af6eb695b9a04b4f8",
+  "cnml-post-download/references/execution.md": "4af4f53b83ff51868c914a604709d3f0691d15feaa9ceb6eed3bc9bfa3433be5",
+  "cnml-post-download/references/original-v60.md": "3cafe7c352acb2e6869cc31a9b84dea6d1bae633bcaa956cb4a80e1f294cd07f"
 }

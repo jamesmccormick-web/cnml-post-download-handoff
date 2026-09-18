@@ -60,6 +60,22 @@ function simulator(s,{missing=false,formula='evaluated',duplicate=false,batchRej
  }
  return {calls,data,respond,run(until){for(let n=0;n<150&&s.stage!=='complete';n++){const o=begin(s);if(o.kind===until)return o;if(o.kind==='replace'&&batchRejected)accept(s,{operationId:o.id,result:{isError:true,content:[{type:'text',text:'400 INVALID_ARGUMENT'}]}});else accept(s,response(s,respond(o)))}return s}};
 }
+test('empty-cell connector sentinel verifies blank subsidy but rejects missing expected amount and malformed receipts',()=>{
+ const setup=()=>{const s=state('positive'),sim=simulator(s);sim.run('verify-subsidy');return s};
+ const receipt=s=>({range:s.pending.args.range,content:`Spreadsheet: 'Manual Data Raw'\nRange: ${s.pending.args.range}\n\nNo data found in the specified range.`});
+ const s=setup();accept(s,response(s,receipt(s)));assert.equal(s.pending,undefined);
+ const amount=setup();amount.property.subsidy=12;assert.throws(()=>accept(amount,response(amount,receipt(amount))),/Written values/);
+ for(const change of [r=>({...r,range:range(0,'V999')}),r=>({...r,truncated:true}),r=>({...r,content:r.content+' Extra text'})]){
+  const bad=setup();assert.throws(()=>accept(bad,response(bad,change(receipt(bad)))));
+ }
+});
+test('notes text readback accepts flattened newlines but rejects altered wording and structured value changes',()=>{
+ const setup=()=>{const p=packet('positive');p.notes[2]='First line\nSecond line $12';const s=createState(p,{date:'September 17, 2026',authorization:{sheets:true,letter:true,email:false}});const sim=simulator(s);for(let i=0;i<100;i++){const o=begin(s);if(o.kind==='verify-written'&&o.i===1)return s;accept(s,response(s,sim.respond(o)))}throw Error('Missing notes verification')};
+ const receipt=s=>({range:s.pending.args.range,content:`Spreadsheet: 'Manual Audit Notes from Screenshots'\nRange: ${s.pending.args.range}\n\n${s.property.notes.map(v=>v.replace(/\n/g,' ')).join('\t')}\n`});
+ const s=setup();accept(s,response(s,receipt(s)));assert.equal(s.pending,undefined);
+ const bad=setup(),r=receipt(bad);r.content=r.content.replace('$12','$13');assert.throws(()=>accept(bad,response(bad,r)),/Written values/);
+ const structured=setup();assert.throws(()=>accept(structured,response(structured,{range:structured.pending.args.range,values:[structured.property.notes.map(v=>v.replace(/\n/g,' '))]})),/Written values/);
+});
 test('negative completes serial writes, sends once, and never creates a letter',()=>{
  const s=state('negative'),sim=simulator(s);sim.run();assert.equal(s.stage,'complete');
  assert.equal(sim.calls.filter(o=>o.kind==='email').length,1);assert.ok(!sim.calls.some(o=>o.kind==='copy'));
@@ -88,14 +104,14 @@ test('positive two-seller copy uses current token and verifies T; no email or P/
  assert.ok(!sim.calls.some(o=>o.kind==='email'));assert.match(sim.calls.find(o=>o.kind==='final-write').args.range,/!T1439$/);
  assert.ok(confirmation(s).includes('Please see the attached release letter'));assert.ok(!confirmation(s).includes('col P'));
 });
-test('inherited writer access needs explicit approval tied to this document and token',()=>{
+test('existing Opendoor writer access is accepted only for the verified destination and current draft',()=>{
  const s=state('positive'),sim=simulator(s);sim.run('share');
  const r=response(s,{fileId:s.document.id,domain:'opendoor.com',role:'writer'});
- assert.throws(()=>accept(structuredClone(s),r),/sharing not confirmed/);
- s.inheritedSharingApproval={documentId:s.document.id,token:'OTHER',userInstruction:'Keep existing access'};
- assert.throws(()=>accept(structuredClone(s),r),/sharing not confirmed/);
- s.inheritedSharingApproval.token=s.property.token;accept(s,r);
- assert.equal(s.queue[0].kind,'replace');assert.match(s.warnings.at(-1),/inherited/);
+ for(const modify of [x=>x.destinationVerified.folder='OTHER',x=>x.document.token='OTHER',x=>x.document.sha256='OTHER']){
+  const bad=structuredClone(s);modify(bad);assert.throws(()=>accept(bad,r));
+ }
+ for(const change of [{domain:'example.com'},{fileId:'OTHER'},{role:'owner'}])assert.throws(()=>accept(structuredClone(s),response(s,{...r.result.structuredContent,...change})),/sharing not confirmed/);
+ accept(s,r);assert.equal(s.queue[0].kind,'replace');
 });
 test('missing rows append once with response-derived row and fresh duplicate checks',()=>{
  const s=state('negative'),sim=simulator(s,{missing:true,formula:'occupied'});sim.run();
