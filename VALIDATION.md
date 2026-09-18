@@ -7,3 +7,5 @@ The update recognizes the exact empty-single-cell connector response, accepts on
 The live run's property data and receipts remain local and are not distributed. Visual paragraph/table shading was not independently verified. Jacob's environment has not been tested; required Runlayer tools and account access must be available. Preserve each installation's runs directory during upgrades. Local ledgers do not coordinate different computers; existing sheet outcomes and uncertain operations remain stop conditions.
 
 September 18 compatibility update: 48 tests pass, including execution of generated tool checks and operations for both profiles, full receipt persistence, arbitrary-binding rejection, and pending-operation replay protection. No live business operations were performed for this update.
+
+Wrapper update: 50 tests pass. Tests execute generated wrapper tool checks and metadata calls with simulated tools, verify all five exact route/payload mappings, preserve full receipts, and retain pending-operation replay protection. No live property was processed during this update.

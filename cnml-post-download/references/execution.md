@@ -89,3 +89,17 @@ Execute the emitted check, then its `accept-tools` command. Continue the normal 
 The default direct profile is unchanged. The explicit catalog profile maps only these five approved names; positive-proceeds Drive/Docs capabilities still require their original bindings. Both profiles require `functions.exec`, a callable `tools` object, and `apply_patch` for durable receipts. If the host lacks these execution capabilities, stop and report that limitation; catalog visibility alone is insufficient.
 
 Update installed skill code in place, preserving `runs/`, ledger, receipts, and source files. Resume the existing checkpoint. Resolve any pending operation using its saved receipt before refreshing the tool check; never retry an uncertain operation. No new upload or ledger is needed for Jacob's blocked, pre-operation checkpoint.
+
+## Runlayer wrapper profile
+
+For tasks that expose Runlayer through `mcp__codex_apps__runlayer_plugin_execute_tool`, use:
+
+```sh
+node automation/proceeds.mjs tools /absolute/path/to/downstream.json --runlayer-wrapper
+```
+
+Execute the emitted check and accept-tools command, then resume the existing checkpoint through the normal next / execute once / accept loop. This profile routes the five verified Sheets/Gmail operations through `{tool_name, arguments}` with their original arguments unchanged, including Gmail `from`. It saves the full wrapper response without discarding error fields. The availability check confirms the wrapper is callable, not that every underlying operation or sender is authorized; actual responses and all existing validation guards remain authoritative. No test email is required.
+
+This wrapper profile covers Sheets and Gmail only. Positive-proceeds Drive/Docs operations still require direct tools; their wrapper names have not been verified. Never guess those names or substitute another connector. Pending and uncertain operations still require reconciliation, never replay.
+
+Upgrade installed files in place and preserve runs, receipts, and ledger. For Jacob's ready checkpoint use --runlayer-wrapper, not --runlayer-catalog. No checkpoint reset is needed.

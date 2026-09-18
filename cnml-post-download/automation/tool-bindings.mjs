@@ -7,14 +7,21 @@ export const catalogAliases = Object.freeze({
  mcp__google_sheets__append: 'append',
  mcp__gmail__send_email: 'send_email',
 });
+export const wrapperTool = 'mcp__codex_apps__runlayer_plugin_execute_tool';
 export function bindings(names, profile = 'direct') {
- if (!['direct', 'runlayer-catalog'].includes(profile)) throw new Error('Unknown tool binding profile');
- return Object.fromEntries(names.map(name => [name, profile === 'runlayer-catalog' ? (catalogAliases[name] ?? name) : name]));
+ if (!['direct', 'runlayer-catalog', 'runlayer-wrapper'].includes(profile)) throw new Error('Unknown tool binding profile');
+ return Object.fromEntries(names.map(name => [name, profile === 'runlayer-wrapper' && catalogAliases[name] ? wrapperTool : profile === 'runlayer-catalog' ? (catalogAliases[name] ?? name) : name]));
 }
 export function checkedBindings(names, check) {
  const expected = bindings(names, check?.profile ?? 'direct');
  if (!check || check.missing?.length || !names.every(n => check.available?.includes(n))) throw new Error('Required Runlayer tools unavailable; refresh tools and accept-tools');
  if (check.bindings && JSON.stringify(Object.entries(check.bindings).sort()) !== JSON.stringify(Object.entries(expected).sort())) throw new Error('Unapproved tool bindings');
- if (check.profile === 'runlayer-catalog' && !check.bindings) throw new Error('Catalog bindings missing');
+ if (['runlayer-catalog','runlayer-wrapper'].includes(check.profile) && !check.bindings) throw new Error('Catalog bindings missing');
  return expected;
+}
+
+export function invocation(name, args, profile = 'direct') {
+ const tool = bindings([name], profile)[name];
+ return {tool, args: profile === 'runlayer-wrapper' && catalogAliases[name]
+  ? {tool_name: catalogAliases[name], arguments: args} : args};
 }

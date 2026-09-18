@@ -73,12 +73,13 @@ test('positive upload activates sheets and letter only, without a second request
  const first=intake();const s=JSON.parse(await readFile(first.checkpoint));assert.deepEqual(s.authorization,{sheets:true,letter:true,email:false});
 }));
 
-for (const profile of ['direct','runlayer-catalog']) test(`emitted ${profile} check and call execute unchanged and preserve receipts`,()=>setup(async({intake,cli})=>{
+for (const profile of ['direct','runlayer-catalog','runlayer-wrapper']) test(`emitted ${profile} check and call execute unchanged and preserve receipts`,()=>setup(async({intake,cli})=>{
  const first=intake();
- const emitted=cli('tools',first.checkpoint,...(profile==='direct'?[]:['--runlayer-catalog']));
+ const emitted=cli('tools',first.checkpoint,...(profile==='direct'?[]:[`--${profile}`]));
  const writes=[]; const calls=[];
  const names=profile==='direct'?['mcp__google_sheets__get_metadata','mcp__google_sheets__fetch','mcp__google_sheets__update','mcp__google_sheets__append','mcp__gmail__send_email']:['google_she_get_metadata','google_she_fetch','update','append','send_email'];
  const tools=Object.fromEntries(names.map(n=>[n,async args=>{calls.push({n,args});return {structuredContent:{sentinel:'full response'}};}]));
+ if(profile==='runlayer-wrapper'){for(const name of names)delete tools[name];tools.mcp__codex_apps__runlayer_plugin_execute_tool=async args=>{calls.push({n:args.tool_name,args:args.arguments});return {structuredContent:{sentinel:'full response'}};};}
  tools.apply_patch=async patch=>{
   assert.ok(patch.startsWith('*** Begin Patch\n*** Add File: '));
   const lines=patch.split('\n'); const path=lines[1].slice(14);
